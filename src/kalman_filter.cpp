@@ -1,5 +1,5 @@
 #include "kalman_filter.h"
-
+#include <iostream>
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
@@ -48,31 +48,32 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     * update the state by using Extended Kalman Filter equations
   */
 	//recover state parameters
-	float px = x_(0);
-	float py = x_(1);
-	float vx = x_(2);
-	float vy = x_(3);
+	double px = x_(0);
+	double py = x_(1);
+	double vx = x_(2);
+	double vy = x_(3);
 
-	//c1 is auxiliar to avoid repetition of calculation
-	float c1 = px*px+py*py;
+
   	//calculate the polar values for the h(x') vector
-	float rho = sqrt(c1);
-	float phi = atan2(py,px);
+	double rho = sqrt(px*px+py*py);
+	double phi = atan2(py,px);
 	//check division by zero
-	if(rho < 0.0001){
-		rho = 0.0001
+	if(rho < 0.00001){
+		rho = 0.0001;
 	}
-  	float rho_dot = c1 / rho
-  
+ 
+  	double rho_dot = (px*vx+py*vy) / rho;
+
   	VectorXd hx(3);
   	hx << rho, phi, rho_dot;
  	VectorXd y = z - hx;
-  
+
   	//set the phi to be between -pi and pi
-   	if(y(1) > M_PI)
+   	while(y(1) > M_PI)
     	y(1) =  y(1) - 2 * M_PI;
-  	if(y(1) < M_PI)
+  	while(y(1) < -M_PI)
     	y(1) = y(1) + 2 * M_PI;
+
   
   	MatrixXd Ht = H_.transpose();
 	MatrixXd S = H_ * P_ * Ht + R_;

@@ -15,7 +15,7 @@ using std::vector;
 FusionEKF::FusionEKF() {
   is_initialized_  = false;
 
-  previous_t estamp_ = 0;
+  previous_timestamp_ = 0;
 
   // initializing matrices
   R_laser_ = MatrixXd(2, 2);
@@ -38,15 +38,12 @@ FusionEKF::FusionEKF() {
     * Set the process and measurement noises
   */
   
- 	H_laser_ << 1, 0, 0, 0
+ 	H_laser_ << 1, 0, 0, 0,
     			 0, 1, 0, 0;
   
   	Hj_ << 0, 0, 0, 0,
   		   0, 0, 0, 0,
   		   0, 0, 0, 0;
-  
-	//create a 4D state vector, we don't know yet the values of the x state
-	ekf_.x_ = VectorXd(4);
 
 	//state covariance matrix P
 	ekf_.P_ = MatrixXd(4, 4);
@@ -56,8 +53,8 @@ FusionEKF::FusionEKF() {
 			  0, 0, 0, 1000;
 
 	//the initial transition matrix F_
-	kf_.F_ = MatrixXd(4, 4);
-	kf_.F_ << 1, 0, 1, 0,
+	ekf_.F_ = MatrixXd(4, 4);
+	ekf_.F_ << 1, 0, 1, 0,
 			  0, 1, 0, 1,
 			  0, 0, 1, 0,
 			  0, 0, 0, 1;
@@ -70,8 +67,8 @@ FusionEKF::FusionEKF() {
 FusionEKF::~FusionEKF() {}
 
 void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
-  	float noise_ax = 9;
-    float noise_ay = 9;
+  	double noise_ax = 9.0;
+    double noise_ay = 9.0;
 
   /*****************************************************************************
    *  Initialization
@@ -102,9 +99,9 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       */
       float rho = measurement_pack.raw_measurements_[0];
       float phi = measurement_pack.raw_measurements_[1];
-      
+      float rho_dot = measurement_pack.raw_measurements_[2];
       // convert to px, py and initialize vx, vy to zero
-      ekf_.x_ << rho*cos(phi), rho*sin(phi), 0 , 0;
+      ekf_.x_ << rho*cos(phi), rho*sin(phi), rho_dot*cos(phi) , rho_dot*sin(phi);
       
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
@@ -122,12 +119,12 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
    ****************************************************************************/
 
  	//compute the time elapsed between the current and previous measurements
-	float dt = (measurement_pack.timestamp_ - previous_timestamp_);
+	double dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1000000.0;
 	previous_timestamp_ = measurement_pack.timestamp_;
 
-	float dt_2 = dt * dt;
-	float dt_3 = dt_2 * dt;
-	float dt_4 = dt_3 * dt;
+	double dt_2 = dt * dt;
+	double dt_3 = dt_2 * dt;
+	double dt_4 = dt_3 * dt;
   
 	//Modify the F matrix so that the time is integrated
 	ekf_.F_(0, 2) = dt;
@@ -152,12 +149,13 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
     // Radar updates
     Hj_ = tools.CalculateJacobian(ekf_.x_);
-    ekf_.H = Hj_;
-    ekf_.R = R_radar_;
-    ekf_.UpdateEFK(measurement_pack.raw_measurements_);
+    ekf_.H_ = Hj_;
+    ekf_.R_ = R_radar_;
+    ekf_.UpdateEKF(measurement_pack.raw_measurements_);
   } else {
     // Laser updates
-    ekf_.R = R_laser_;
+    ekf_.H_ = H_laser_;
+    ekf_.R_ = R_laser_;
     ekf_.Update(measurement_pack.raw_measurements_);
   }
 
